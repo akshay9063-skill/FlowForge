@@ -65,10 +65,19 @@ public class AuthController {
             String email) {
     }
 
+    public record CsrfResponse(
+            String headerName,
+            String parameterName,
+            String token) {
+    }
+
     // CSRF TOKEN FOR THE REACT FRONTEND
     @GetMapping("/csrf")
-    public CsrfToken csrf(CsrfToken csrfToken) {
-        return csrfToken;
+    public CsrfResponse csrf(CsrfToken csrfToken) {
+        return new CsrfResponse(
+                csrfToken.getHeaderName(),
+                csrfToken.getParameterName(),
+                csrfToken.getToken());
     }
 
     // REGISTER
@@ -87,8 +96,7 @@ public class AuthController {
                 || request.password().length() < 8) {
 
             return ResponseEntity.badRequest().body(
-                    Map.of(
-                            "message",
+                    Map.of("message",
                             "Enter your name, email, and a password of at least 8 characters."));
         }
 
@@ -107,8 +115,7 @@ public class AuthController {
 
         if (userRepository.existsByEmailIgnoreCase(email)) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(
-                    Map.of(
-                            "message",
+                    Map.of("message",
                             "An account with this email already exists."));
         }
 
@@ -121,8 +128,7 @@ public class AuthController {
             user = userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException ex) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(
-                    Map.of(
-                            "message",
+                    Map.of("message",
                             "An account with this email already exists."));
         }
 
@@ -166,7 +172,6 @@ public class AuthController {
 
         AppUser user = result.get();
 
-        // Rotate the session ID to reduce session-fixation risk.
         HttpSession existingSession = httpRequest.getSession(false);
 
         if (existingSession != null) {
