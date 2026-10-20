@@ -4,39 +4,30 @@ import './AuthPage.css'
 
 const AUTH_URL = 'https://flowforge-qeav.onrender.com/api/auth'
 
-function getCsrfCookie() {
-  const cookie = document.cookie
-    .split('; ')
-    .find(item => item.startsWith('XSRF-TOKEN='))
-
-  return cookie
-    ? decodeURIComponent(
-        cookie.substring('XSRF-TOKEN='.length)
-      )
-    : null
-}
-
 async function requestCsrfToken() {
   const response = await fetch(`${AUTH_URL}/csrf`, {
     method: 'GET',
     credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
   })
 
   if (!response.ok) {
     throw new Error(
-      'Could not obtain the security token. Please try again.'
+      `Could not obtain the security token (HTTP ${response.status}).`
     )
   }
 
-  const token = getCsrfCookie()
+  const data = await response.json()
 
-  if (!token) {
+  if (!data.token) {
     throw new Error(
-      'Security token is missing. Refresh the page and try again.'
+      'The backend did not return a security token. Please try again.'
     )
   }
 
-  return token
+  return data.token
 }
 
 function AuthPage({ onAuthenticated }) {
@@ -71,31 +62,31 @@ function AuthPage({ onAuthenticated }) {
     try {
       const csrfToken = await requestCsrfToken()
 
-      const response = await fetch(
-        `${AUTH_URL}/${mode === 'login' ? 'login' : 'register'}`,
-        {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-XSRF-TOKEN': csrfToken,
-          },
-          body: JSON.stringify({
-            ...(mode === 'register'
-              ? { name: name.trim() }
-              : {}),
-            email: email.trim(),
-            password,
-          }),
-        }
-      )
+      const endpoint =
+        mode === 'login' ? 'login' : 'register'
+
+      const response = await fetch(`${AUTH_URL}/${endpoint}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-XSRF-TOKEN': csrfToken,
+        },
+        body: JSON.stringify({
+          ...(mode === 'register'
+            ? { name: name.trim() }
+            : {}),
+          email: email.trim(),
+          password,
+        }),
+      })
 
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
         throw new Error(
           data.message ||
-            'Authentication failed. Please try again.'
+            `Request failed with HTTP ${response.status}.`
         )
       }
 
@@ -103,7 +94,7 @@ function AuthPage({ onAuthenticated }) {
     } catch (err) {
       setError(
         err.message ||
-          'Could not connect to the backend. Check that Spring Boot is running.'
+          'Could not connect to the backend. Please try again.'
       )
     } finally {
       setLoading(false)
