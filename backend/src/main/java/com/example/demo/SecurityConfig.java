@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -44,19 +45,27 @@ public class SecurityConfig {
             SecurityContextRepository securityContextRepository)
             throws Exception {
 
+        CookieCsrfTokenRepository csrfTokenRepository =
+                CookieCsrfTokenRepository.withHttpOnlyFalse();
+
         http
             .cors(cors -> {})
             .csrf(csrf -> csrf
-                .csrfTokenRepository(
-                    CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRepository(csrfTokenRepository)
                 .csrfTokenRequestHandler(
-                    new SpaCsrfTokenRequestHandler()))
-            .securityContext(context -> context
-                .securityContextRepository(securityContextRepository)
-                .requireExplicitSave(true))
+                    new SpaCsrfTokenRequestHandler())
+            )
             .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .sessionCreationPolicy(
+                    SessionCreationPolicy.IF_REQUIRED)
+            )
+            .securityContext(context -> context
+                .securityContextRepository(
+                    securityContextRepository)
+                .requireExplicitSave(true)
+            )
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(
                     "/api/health",
                     "/api/auth/csrf",
@@ -82,16 +91,31 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOrigins(
-            List.of("http://localhost:5173"));
+        config.setAllowedOrigins(List.of(
+            "http://localhost:5173",
+            "https://flow-forge-olive.vercel.app",
+            "https://flow-forge-git-main-flowforge3.vercel.app",
+            "https://flow-forge-j7irzbnq3-flowforge3.vercel.app"
+        ));
 
-        config.setAllowedMethods(
-            List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of(
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "OPTIONS"
+        ));
 
-        config.setAllowedHeaders(
-            List.of("Content-Type", "X-XSRF-TOKEN"));
+        config.setAllowedHeaders(List.of(
+            "Content-Type",
+            "X-XSRF-TOKEN",
+            "Accept",
+            "Origin"
+        ));
 
         config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
@@ -116,9 +140,10 @@ public class SecurityConfig {
                 HttpServletResponse response,
                 java.util.function.Supplier<CsrfToken> deferredCsrfToken) {
 
-            xorHandler.handle(request, response, deferredCsrfToken);
+            xorHandler.handle(
+                request, response, deferredCsrfToken);
 
-            // Ensure the CSRF cookie is generated for the browser.
+            // Ensure the CSRF token cookie is generated.
             deferredCsrfToken.get();
         }
 
@@ -132,11 +157,11 @@ public class SecurityConfig {
 
             if (StringUtils.hasText(headerValue)) {
                 return plainHandler.resolveCsrfTokenValue(
-                        request, csrfToken);
+                    request, csrfToken);
             }
 
             return xorHandler.resolveCsrfTokenValue(
-                    request, csrfToken);
+                request, csrfToken);
         }
     }
 }
