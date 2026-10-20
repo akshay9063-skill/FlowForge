@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import './AuthPage.css'
 
-const AUTH_URL = 'http://localhost:8080/api/auth'
+const AUTH_URL = 'https://flowforge-qeav.onrender.com/api/auth'
 
 function getCsrfCookie() {
   const cookie = document.cookie
