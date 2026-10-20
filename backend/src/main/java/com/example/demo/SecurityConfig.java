@@ -48,6 +48,12 @@ public class SecurityConfig {
         CookieCsrfTokenRepository csrfTokenRepository =
                 CookieCsrfTokenRepository.withHttpOnlyFalse();
 
+        // Cross-site frontend and backend require secure cookies.
+        csrfTokenRepository.setCookieCustomizer(cookie -> cookie
+                .secure(true)
+                .sameSite("None")
+                .path("/"));
+
         http
             .cors(cors -> {})
             .csrf(csrf -> csrf
@@ -143,7 +149,7 @@ public class SecurityConfig {
             xorHandler.handle(
                 request, response, deferredCsrfToken);
 
-            // Ensure the CSRF token cookie is generated.
+            // Force generation of the deferred CSRF token.
             deferredCsrfToken.get();
         }
 
