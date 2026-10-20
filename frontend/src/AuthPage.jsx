@@ -11,6 +11,7 @@ async function requestCsrfToken() {
     headers: {
       Accept: 'application/json',
     },
+    cache: 'no-store',
   })
 
   if (!response.ok) {
@@ -60,41 +61,40 @@ function AuthPage({ onAuthenticated }) {
     setLoading(true)
 
     try {
+      // Fetch a fresh CSRF token immediately before the POST.
       const csrfToken = await requestCsrfToken()
-
-      const endpoint =
-        mode === 'login' ? 'login' : 'register'
+      const endpoint = mode === 'login' ? 'login' : 'register'
 
       const response = await fetch(`${AUTH_URL}/${endpoint}`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'application/json',
           'X-XSRF-TOKEN': csrfToken,
         },
         body: JSON.stringify({
-          ...(mode === 'register'
-            ? { name: name.trim() }
-            : {}),
+          ...(mode === 'register' ? { name: name.trim() } : {}),
           email: email.trim(),
           password,
         }),
+        cache: 'no-store',
       })
 
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
-            `Request failed with HTTP ${response.status}.`
+          data.message || `Request failed with HTTP ${response.status}.`
         )
       }
 
       onAuthenticated(data)
     } catch (err) {
       setError(
-        err.message ||
-          'Could not connect to the backend. Please try again.'
+        err instanceof Error
+          ? err.message
+          : 'Could not connect to the backend. Please try again.'
       )
     } finally {
       setLoading(false)
@@ -117,9 +117,7 @@ function AuthPage({ onAuthenticated }) {
           </span>
 
           <h1>
-            {mode === 'login'
-              ? 'Welcome back'
-              : 'Create your account'}
+            {mode === 'login' ? 'Welcome back' : 'Create your account'}
           </h1>
 
           <p>
@@ -157,7 +155,6 @@ function AuthPage({ onAuthenticated }) {
           {mode === 'register' && (
             <label>
               Full name
-
               <input
                 type="text"
                 value={name}
@@ -172,7 +169,6 @@ function AuthPage({ onAuthenticated }) {
 
           <label>
             Email address
-
             <input
               type="email"
               value={email}
@@ -185,7 +181,6 @@ function AuthPage({ onAuthenticated }) {
 
           <label>
             Password
-
             <input
               type="password"
               value={password}
@@ -197,9 +192,7 @@ function AuthPage({ onAuthenticated }) {
               }
               minLength={mode === 'register' ? 8 : undefined}
               autoComplete={
-                mode === 'login'
-                  ? 'current-password'
-                  : 'new-password'
+                mode === 'login' ? 'current-password' : 'new-password'
               }
               required
             />
