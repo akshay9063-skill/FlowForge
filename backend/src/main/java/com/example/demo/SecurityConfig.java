@@ -10,11 +10,20 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.csrf.CsrfTokenRequestHandler;
+import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 public class SecurityConfig {
@@ -37,9 +46,11 @@ public class SecurityConfig {
 
         http
             .cors(cors -> {})
-            // Local development only. Configure CSRF protection
-            // before deploying this application publicly.
-            .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(
+                    CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(
+                    new SpaCsrfTokenRequestHandler()))
             .securityContext(context -> context
                 .securityContextRepository(securityContextRepository)
                 .requireExplicitSave(true))
@@ -48,6 +59,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/api/health",
+                    "/api/auth/csrf",
                     "/api/auth/register",
                     "/api/auth/login",
                     "/api/auth/me",
@@ -87,5 +99,44 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/api/**", config);
 
         return source;
+    }
+
+    static final class SpaCsrfTokenRequestHandler
+            implements CsrfTokenRequestHandler {
+
+        private final CsrfTokenRequestAttributeHandler plainHandler =
+                new CsrfTokenRequestAttributeHandler();
+
+        private final XorCsrfTokenRequestAttributeHandler xorHandler =
+                new XorCsrfTokenRequestAttributeHandler();
+
+        @Override
+        public void handle(
+                HttpServletRequest request,
+                HttpServletResponse response,
+                java.util.function.Supplier<CsrfToken> deferredCsrfToken) {
+
+            xorHandler.handle(request, response, deferredCsrfToken);
+
+            // Ensure the CSRF cookie is generated for the browser.
+            deferredCsrfToken.get();
+        }
+
+        @Override
+        public String resolveCsrfTokenValue(
+                HttpServletRequest request,
+                CsrfToken csrfToken) {
+
+            String headerValue =
+                    request.getHeader(csrfToken.getHeaderName());
+
+            if (StringUtils.hasText(headerValue)) {
+                return plainHandler.resolveCsrfTokenValue(
+                        request, csrfToken);
+            }
+
+            return xorHandler.resolveCsrfTokenValue(
+                    request, csrfToken);
+        }
     }
 }

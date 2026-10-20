@@ -28,14 +28,56 @@ const STATUS_COLORS = {
   Done: '#10b981',
 }
 
+function getCsrfCookie() {
+  const cookie = document.cookie
+    .split('; ')
+    .find(item => item.startsWith('XSRF-TOKEN='))
+
+  return cookie
+    ? decodeURIComponent(cookie.substring('XSRF-TOKEN='.length))
+    : null
+}
+
+async function getCsrfToken() {
+  const response = await fetch(`${AUTH_API_URL}/csrf`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(
+      'Could not obtain the security token. Refresh the page and try again.'
+    )
+  }
+
+  const token = getCsrfCookie()
+
+  if (!token) {
+    throw new Error(
+      'The CSRF cookie is missing. Check the backend CSRF configuration.'
+    )
+  }
+
+  return token
+}
+
 async function apiRequest(url, options = {}) {
+  const method = (options.method || 'GET').toUpperCase()
+
+  const headers = {
+    ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+    ...options.headers,
+  }
+
+  if (!['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) {
+    headers['X-XSRF-TOKEN'] = await getCsrfToken()
+  }
+
   const response = await fetch(url, {
     ...options,
+    method,
     credentials: 'include',
-    headers: {
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...options.headers,
-    },
+    headers,
   })
 
   if (!response.ok) {
@@ -73,13 +115,11 @@ function initials(name = '') {
 }
 
 function App() {
-  // Authentication state
   const [authUser, setAuthUser] = useState(null)
   const [authChecking, setAuthChecking] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
   const [authError, setAuthError] = useState('')
 
-  // Projects and tasks
   const [projects, setProjects] = useState([])
   const [tasks, setTasks] = useState([])
 
@@ -90,13 +130,11 @@ function App() {
   const [saving, setSaving] = useState(false)
   const [taskSaving, setTaskSaving] = useState(false)
 
-  // Task filters
   const [taskSearch, setTaskSearch] = useState('')
   const [taskStatusFilter, setTaskStatusFilter] = useState('All')
   const [taskPriorityFilter, setTaskPriorityFilter] = useState('All')
   const [taskProjectFilter, setTaskProjectFilter] = useState('All')
 
-  // Project form
   const [openProjectMenu, setOpenProjectMenu] = useState(null)
   const [editingProject, setEditingProject] = useState(null)
   const [showProjectForm, setShowProjectForm] = useState(false)
@@ -106,7 +144,6 @@ function App() {
   const [projectDeadline, setProjectDeadline] = useState('')
   const [formError, setFormError] = useState('')
 
-  // Task form
   const [showTaskForm, setShowTaskForm] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
   const [taskTitle, setTaskTitle] = useState('')
@@ -116,7 +153,7 @@ function App() {
   const [taskPriority, setTaskPriority] = useState('Medium')
   const [taskDueDate, setTaskDueDate] = useState('')
 
-  // Check whether a valid login session exists.
+  // Check the current login session.
   useEffect(() => {
     let active = true
 
@@ -129,13 +166,9 @@ function App() {
           setAuthError('')
         }
       } catch {
-        if (active) {
-          setAuthUser(null)
-        }
+        if (active) setAuthUser(null)
       } finally {
-        if (active) {
-          setAuthChecking(false)
-        }
+        if (active) setAuthChecking(false)
       }
     }
 
@@ -209,7 +242,6 @@ function App() {
     }
   }, [authUser])
 
-  // Logout
   async function handleLogout() {
     if (loggingOut) return
 
@@ -235,7 +267,6 @@ function App() {
     setLoggingOut(false)
   }
 
-  // Project form helpers
   function resetProjectForm() {
     setShowProjectForm(false)
     setEditingProject(null)
@@ -271,7 +302,7 @@ function App() {
     setShowProjectForm(true)
   }
 
-  // Create or update a project
+  // Create or update a project.
   async function saveProject(event) {
     event.preventDefault()
     setFormError('')
@@ -316,9 +347,7 @@ function App() {
       if (isEditing) {
         setProjects(current =>
           current.map(project =>
-            project.id === projectForUi.id
-              ? projectForUi
-              : project
+            project.id === projectForUi.id ? projectForUi : project
           )
         )
       } else {
@@ -328,15 +357,12 @@ function App() {
       setApiError('')
       resetProjectForm()
     } catch (error) {
-      setFormError(
-        error.message || 'Unable to save the project.'
-      )
+      setFormError(error.message || 'Unable to save the project.')
     } finally {
       setSaving(false)
     }
   }
 
-  // Delete project
   async function deleteProject(project) {
     const confirmed = window.confirm(
       `Delete "${project.name}"? This cannot be undone.`
@@ -361,15 +387,12 @@ function App() {
       setOpenProjectMenu(null)
       setApiError('')
     } catch (error) {
-      setApiError(
-        error.message || 'Could not delete the project.'
-      )
+      setApiError(error.message || 'Could not delete the project.')
     } finally {
       setSaving(false)
     }
   }
 
-  // Task form helpers
   function resetTaskForm() {
     setShowTaskForm(false)
     setEditingTask(null)
@@ -410,7 +433,7 @@ function App() {
     setShowTaskForm(true)
   }
 
-  // Create or update a task
+  // Create or update a task.
   async function saveTask(event) {
     event.preventDefault()
     setTaskError('')
@@ -437,9 +460,7 @@ function App() {
             status: taskStatus,
             priority: taskPriority,
             dueDate: taskDueDate || null,
-            projectId: taskProjectId
-              ? Number(taskProjectId)
-              : null,
+            projectId: taskProjectId ? Number(taskProjectId) : null,
           }),
         }
       )
@@ -456,15 +477,12 @@ function App() {
 
       resetTaskForm()
     } catch (error) {
-      setTaskError(
-        error.message || 'Unable to save the task.'
-      )
+      setTaskError(error.message || 'Unable to save the task.')
     } finally {
       setTaskSaving(false)
     }
   }
 
-  // Delete task
   async function deleteTask(task) {
     if (!window.confirm(`Delete "${task.title}"?`)) return
 
@@ -475,17 +493,12 @@ function App() {
         method: 'DELETE',
       })
 
-      setTasks(current =>
-        current.filter(item => item.id !== task.id)
-      )
+      setTasks(current => current.filter(item => item.id !== task.id))
     } catch (error) {
-      setTaskError(
-        error.message || 'Could not delete the task.'
-      )
+      setTaskError(error.message || 'Could not delete the task.')
     }
   }
 
-  // Derived dashboard statistics
   const completedTasks = tasks.filter(
     task => task.status === 'Done'
   ).length
@@ -515,7 +528,6 @@ function App() {
     return new Date(`${task.dueDate}T00:00:00`) < today
   }).length
 
-  // Search and filters
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
       const searchText = taskSearch.trim().toLowerCase()
@@ -553,7 +565,6 @@ function App() {
     taskProjectFilter,
   ])
 
-  // Analytics data
   const taskStatusData = [
     {
       name: 'To Do',
@@ -591,7 +602,6 @@ function App() {
     }
   })
 
-  // Session loading state
   if (authChecking) {
     return (
       <main
@@ -612,7 +622,6 @@ function App() {
     )
   }
 
-  // Login and registration
   if (!authUser) {
     return (
       <>
@@ -621,15 +630,16 @@ function App() {
             {authError}
           </div>
         )}
-        <AuthPage onAuthenticated={user => {
-          setAuthUser(user)
-          setAuthError('')
-        }} />
+        <AuthPage
+          onAuthenticated={user => {
+            setAuthUser(user)
+            setAuthError('')
+          }}
+        />
       </>
     )
   }
 
-  // Main dashboard
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -725,11 +735,9 @@ function App() {
             <span className="date-label">
               Your workspace at a glance
             </span>
-
             <div className="top-avatar">
               {initials(authUser.name)}
             </div>
-
             <button
               type="button"
               className="text-button"
@@ -759,7 +767,6 @@ function App() {
               Here's what's happening across your projects today.
             </p>
           </div>
-
           <button
             type="button"
             className="primary-button"
@@ -800,7 +807,6 @@ function App() {
                       : 'Give your next big idea a place to grow.'}
                   </p>
                 </div>
-
                 <button
                   type="button"
                   className="modal-close"
@@ -871,7 +877,6 @@ function App() {
                   >
                     Cancel
                   </button>
-
                   <button
                     type="submit"
                     className="primary-button"
@@ -910,7 +915,6 @@ function App() {
                   </h2>
                   <p>Organize work and keep your project moving.</p>
                 </div>
-
                 <button
                   type="button"
                   className="modal-close"
@@ -1008,7 +1012,6 @@ function App() {
                   >
                     Cancel
                   </button>
-
                   <button
                     type="submit"
                     className="primary-button"
@@ -1124,7 +1127,6 @@ function App() {
                         className="project-mark"
                         style={{ background: project.color }}
                       />
-
                       <div style={{ position: 'relative', zIndex: 2 }}>
                         <button
                           type="button"

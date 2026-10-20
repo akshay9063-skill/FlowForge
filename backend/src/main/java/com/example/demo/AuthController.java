@@ -15,6 +15,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,6 +42,7 @@ public class AuthController {
             AppUserRepository userRepository,
             PasswordEncoder passwordEncoder,
             SecurityContextRepository securityContextRepository) {
+
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.securityContextRepository = securityContextRepository;
@@ -61,6 +63,12 @@ public class AuthController {
             Long id,
             String name,
             String email) {
+    }
+
+    // CSRF TOKEN FOR THE REACT FRONTEND
+    @GetMapping("/csrf")
+    public CsrfToken csrf(CsrfToken csrfToken) {
+        return csrfToken;
     }
 
     // REGISTER

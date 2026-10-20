@@ -4,6 +4,41 @@ import './AuthPage.css'
 
 const AUTH_URL = 'http://localhost:8080/api/auth'
 
+function getCsrfCookie() {
+  const cookie = document.cookie
+    .split('; ')
+    .find(item => item.startsWith('XSRF-TOKEN='))
+
+  return cookie
+    ? decodeURIComponent(
+        cookie.substring('XSRF-TOKEN='.length)
+      )
+    : null
+}
+
+async function requestCsrfToken() {
+  const response = await fetch(`${AUTH_URL}/csrf`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(
+      'Could not obtain the security token. Please try again.'
+    )
+  }
+
+  const token = getCsrfCookie()
+
+  if (!token) {
+    throw new Error(
+      'Security token is missing. Refresh the page and try again.'
+    )
+  }
+
+  return token
+}
+
 function AuthPage({ onAuthenticated }) {
   const [mode, setMode] = useState('login')
   const [name, setName] = useState('')
@@ -34,14 +69,21 @@ function AuthPage({ onAuthenticated }) {
     setLoading(true)
 
     try {
+      const csrfToken = await requestCsrfToken()
+
       const response = await fetch(
         `${AUTH_URL}/${mode === 'login' ? 'login' : 'register'}`,
         {
           method: 'POST',
           credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-XSRF-TOKEN': csrfToken,
+          },
           body: JSON.stringify({
-            ...(mode === 'register' ? { name: name.trim() } : {}),
+            ...(mode === 'register'
+              ? { name: name.trim() }
+              : {}),
             email: email.trim(),
             password,
           }),
@@ -52,7 +94,8 @@ function AuthPage({ onAuthenticated }) {
 
       if (!response.ok) {
         throw new Error(
-          data.message || 'Authentication failed. Please try again.'
+          data.message ||
+            'Authentication failed. Please try again.'
         )
       }
 
@@ -60,7 +103,7 @@ function AuthPage({ onAuthenticated }) {
     } catch (err) {
       setError(
         err.message ||
-        'Could not connect to the backend. Check that Spring Boot is running.'
+          'Could not connect to the backend. Check that Spring Boot is running.'
       )
     } finally {
       setLoading(false)
@@ -72,12 +115,22 @@ function AuthPage({ onAuthenticated }) {
       <section className="auth-card">
         <a className="auth-brand" href="/">
           <span className="auth-logo">F</span>
-          <span>flowforge<span className="auth-dot">.</span></span>
+          <span>
+            flowforge<span className="auth-dot">.</span>
+          </span>
         </a>
 
         <div className="auth-heading">
-          <span className="auth-eyebrow">YOUR WORKSPACE, REIMAGINED</span>
-          <h1>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h1>
+          <span className="auth-eyebrow">
+            YOUR WORKSPACE, REIMAGINED
+          </span>
+
+          <h1>
+            {mode === 'login'
+              ? 'Welcome back'
+              : 'Create your account'}
+          </h1>
+
           <p>
             {mode === 'login'
               ? 'Sign in to continue managing your projects.'
@@ -113,6 +166,7 @@ function AuthPage({ onAuthenticated }) {
           {mode === 'register' && (
             <label>
               Full name
+
               <input
                 type="text"
                 value={name}
@@ -127,6 +181,7 @@ function AuthPage({ onAuthenticated }) {
 
           <label>
             Email address
+
             <input
               type="email"
               value={email}
@@ -139,6 +194,7 @@ function AuthPage({ onAuthenticated }) {
 
           <label>
             Password
+
             <input
               type="password"
               value={password}
@@ -150,7 +206,9 @@ function AuthPage({ onAuthenticated }) {
               }
               minLength={mode === 'register' ? 8 : undefined}
               autoComplete={
-                mode === 'login' ? 'current-password' : 'new-password'
+                mode === 'login'
+                  ? 'current-password'
+                  : 'new-password'
               }
               required
             />
