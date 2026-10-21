@@ -42,6 +42,29 @@ function getCsrfCookie() {
 
 
 
+async function getCsrfToken() {
+  const response = await fetch(
+    'https://flowforge-qeav.onrender.com/api/auth/csrf',
+    {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error('Could not obtain the security token. Refresh the page and try again.')
+  }
+
+  const data = await response.json()
+
+  if (!data.token) {
+    throw new Error('The backend did not return a CSRF token.')
+  }
+
+  return data.token
+}
+
 async function apiRequest(url, options = {}) {
   const method = (options.method || 'GET').toUpperCase()
 
