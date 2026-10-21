@@ -41,28 +41,6 @@ function getCsrfCookie() {
 }
 
 
-async function getCsrfToken() {
-  const response = await fetch(`${AUTH_API_URL}/csrf`, {
-    method: 'GET',
-    credentials: 'include',
-    cache: 'no-store',
-  })
-
-  if (!response.ok) {
-    throw new Error(
-      'Could not obtain the security token. Refresh the page and try again.'
-    )
-  }
-
-  const data = await response.json()
-
-  if (!data.token) {
-    throw new Error('The backend did not return a CSRF token.')
-  }
-
-  return data.token
-}
-
 
 async function apiRequest(url, options = {}) {
   const method = (options.method || 'GET').toUpperCase()
@@ -501,6 +479,41 @@ function App() {
       setTaskError(error.message || 'Could not delete the task.')
     }
   }
+  
+  async function toggleTaskCompletion(task) {
+    const nextStatus = task.status === 'Done' ? 'To Do' : 'Done'
+
+    setTaskError('')
+
+    try {
+      const updatedTask = await apiRequest(`${TASK_API_URL}/${task.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          title: task.title,
+          description: task.description || '',
+          status: nextStatus,
+          priority: task.priority || 'Medium',
+          dueDate: task.dueDate || null,
+          projectId: task.projectId ?? null,
+        }),
+      })
+
+      setTasks(current =>
+        current.map(item =>
+          item.id === task.id
+            ? (
+                updatedTask && updatedTask.id != null
+                  ? updatedTask
+                  : { ...item, status: nextStatus }
+              )
+            : item
+        )
+      )
+    } catch (error) {
+      setTaskError(error.message || 'Could not update task status.')
+    }
+  }
+
 
   const completedTasks = tasks.filter(
     task => task.status === 'Done'
@@ -1342,13 +1355,24 @@ function App() {
                   return (
                     <div className="task-row" key={task.id}>
                       <div className="task-title">
-                        <span
-                          className={`task-check ${
-                            task.status === 'Done' ? 'checked' : ''
-                          }`}
-                        >
-                          {task.status === 'Done' ? '✓' : ''}
-                        </span>
+                       
+<button
+  type="button"
+  className={`task-check ${
+    task.status === 'Done' ? 'checked' : ''
+  }`}
+  aria-label={
+    task.status === 'Done'
+      ? `Mark ${task.title} as not done`
+      : `Mark ${task.title} as done`
+  }
+  aria-pressed={task.status === 'Done'}
+  onClick={() => toggleTaskCompletion(task)}
+  style={{ cursor: 'pointer', border: 0, padding: 0 }}
+>
+  {task.status === 'Done' ? '✓' : ''}
+</button>
+
                         <span>{task.title}</span>
                       </div>
 
