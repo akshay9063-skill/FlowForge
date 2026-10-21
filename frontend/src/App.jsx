@@ -40,10 +40,12 @@ function getCsrfCookie() {
     : null
 }
 
+
 async function getCsrfToken() {
   const response = await fetch(`${AUTH_API_URL}/csrf`, {
     method: 'GET',
     credentials: 'include',
+    cache: 'no-store',
   })
 
   if (!response.ok) {
@@ -52,16 +54,15 @@ async function getCsrfToken() {
     )
   }
 
-  const token = getCsrfCookie()
+  const data = await response.json()
 
-  if (!token) {
-    throw new Error(
-      'The CSRF cookie is missing. Check the backend CSRF configuration.'
-    )
+  if (!data.token) {
+    throw new Error('The backend did not return a CSRF token.')
   }
 
-  return token
+  return data.token
 }
+
 
 async function apiRequest(url, options = {}) {
   const method = (options.method || 'GET').toUpperCase()
