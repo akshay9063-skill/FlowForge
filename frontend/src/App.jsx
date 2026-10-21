@@ -16,9 +16,11 @@ import {
 } from 'recharts'
 import './App.css'
 
-const API_URL = 'https://flowforge-qeav.onrender.com'
-const TASK_API_URL = 'https://flowforge-qeav.onrender.com'
-const AUTH_API_URL = 'https://flowforge-qeav.onrender.com'
+
+const API_URL = 'https://flowforge-qeav.onrender.com/api/projects'
+const TASK_API_URL = 'https://flowforge-qeav.onrender.com/api/tasks'
+const AUTH_API_URL = 'https://flowforge-qeav.onrender.com/api/auth'
+
 
 const COLORS = ['#8b5cf6', '#06b6d4', '#f59e0b', '#10b981', '#ec4899']
 
