@@ -141,17 +141,19 @@ public class SecurityConfig {
                 new XorCsrfTokenRequestAttributeHandler();
 
         @Override
-        public void handle(
-                HttpServletRequest request,
-                HttpServletResponse response,
-                java.util.function.Supplier<CsrfToken> deferredCsrfToken) {
+        
 
-            xorHandler.handle(
-                request, response, deferredCsrfToken);
+public void handle(
+        HttpServletRequest request,
+        HttpServletResponse response,
+        java.util.function.Supplier<CsrfToken> deferredCsrfToken) {
 
-            // Force generation of the deferred CSRF token.
-            deferredCsrfToken.get();
-        }
+    plainHandler.handle(
+        request, response, deferredCsrfToken);
+
+    deferredCsrfToken.get();
+}
+
 
         @Override
         public String resolveCsrfTokenValue(
