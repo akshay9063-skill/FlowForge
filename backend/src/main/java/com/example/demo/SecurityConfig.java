@@ -48,7 +48,7 @@ public class SecurityConfig {
         CookieCsrfTokenRepository csrfTokenRepository =
                 CookieCsrfTokenRepository.withHttpOnlyFalse();
 
-        // Cross-site frontend and backend require secure cookies.
+        // Secure cookies for HTTPS deployments.
         csrfTokenRepository.setCookieCustomizer(cookie -> cookie
                 .secure(true)
                 .sameSite("None")
@@ -73,6 +73,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(
+                    "/",
+                    "/error",
                     "/api/health",
                     "/api/auth/csrf",
                     "/api/auth/register",
@@ -101,7 +103,8 @@ public class SecurityConfig {
             "http://localhost:5173",
             "https://flow-forge-olive.vercel.app",
             "https://flow-forge-git-main-flowforge3.vercel.app",
-            "https://flow-forge-j7irzbnq3-flowforge3.vercel.app"
+            "https://flow-forge-j7irzbnq3-flowforge3.vercel.app",
+            "https://flowforge-1-gtci.onrender.com"
         ));
 
         config.setAllowedMethods(List.of(
@@ -141,19 +144,17 @@ public class SecurityConfig {
                 new XorCsrfTokenRequestAttributeHandler();
 
         @Override
-        
+        public void handle(
+                HttpServletRequest request,
+                HttpServletResponse response,
+                java.util.function.Supplier<CsrfToken> deferredCsrfToken) {
 
-public void handle(
-        HttpServletRequest request,
-        HttpServletResponse response,
-        java.util.function.Supplier<CsrfToken> deferredCsrfToken) {
+            plainHandler.handle(
+                    request, response, deferredCsrfToken);
 
-    plainHandler.handle(
-        request, response, deferredCsrfToken);
-
-    deferredCsrfToken.get();
-}
-
+            // Force generation of the deferred CSRF token.
+            deferredCsrfToken.get();
+        }
 
         @Override
         public String resolveCsrfTokenValue(
@@ -165,11 +166,11 @@ public void handle(
 
             if (StringUtils.hasText(headerValue)) {
                 return plainHandler.resolveCsrfTokenValue(
-                    request, csrfToken);
+                        request, csrfToken);
             }
 
             return xorHandler.resolveCsrfTokenValue(
-                request, csrfToken);
+                    request, csrfToken);
         }
     }
 }
